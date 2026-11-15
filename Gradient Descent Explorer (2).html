@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Gradient Descent Explorer</title>
+<style>
+:root{--bg:#f7f7f4;--card:#fff;--text:#1d1d1b;--muted:#6b6b66;--line:#dcdcd5;--accent:#2a6fdb;--curve:#444;--path:#d9480f;--good:#2b8a3e;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#17181a;--card:#222427;--text:#ececea;--muted:#9a9a95;--line:#3a3d41;--accent:#6ea8ff;--curve:#c8c8c4;--path:#ff9159;--good:#6fcf7f;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#17181a;--card:#222427;--text:#ececea;--muted:#9a9a95;--line:#3a3d41;--accent:#6ea8ff;--curve:#c8c8c4;--path:#ff9159;--good:#6fcf7f;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:980px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:1.6rem;margin:0 0 4px}
+p.sub{color:var(--muted);margin:0 0 16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.tabs button{border:1px solid var(--line);background:var(--card);color:var(--text);padding:8px 12px;border-radius:999px;cursor:pointer;font-size:.95rem}
+.tabs button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.formula{font-family:ui-monospace,Menlo,Consolas,monospace;background:var(--bg);border-radius:8px;padding:8px 10px;margin:8px 0;overflow-x:auto}
+.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.controls label{display:block;font-size:.9rem;color:var(--muted)}
+.controls b{color:var(--text)}
+input[type=range]{width:100%}
+.btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.btns button{border:1px solid var(--line);background:var(--card);color:var(--text);padding:8px 14px;border-radius:8px;cursor:pointer;font-size:.95rem}
+.btns button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+canvas{width:100%;height:340px;display:block;cursor:crosshair;touch-action:manipulation}
+.status{margin-top:8px;font-size:.95rem}
+.tw{max-height:320px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font-size:.9rem}
+th,td{padding:6px 10px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th{position:sticky;top:0;background:var(--card);color:var(--muted);font-weight:600}
+tr.last td{background:color-mix(in srgb,var(--accent) 15%,transparent);font-weight:600}
+.note{color:var(--muted);font-size:.9rem}
+</style>
+</head>
+<body>
+<main>
+<h1>Gradient Descent Explorer</h1>
+<p class="sub">Gradient descent walks downhill: <b>x<sub>new</sub> = x − α · f′(x)</b>. Pick a function, choose a start point and learning rate α, then step through the iterations.</p>
+
+<div class="tabs" id="tabs"></div>
+
+<div class="card">
+  <div id="fname" style="font-weight:600"></div>
+  <div class="formula" id="fdesc"></div>
+  <canvas id="cv"></canvas>
+  <div class="note">Tip: click or tap the plot to choose the starting point x₀. Orange dots are the iterations; the dashed line is the tangent (slope) at the current point.</div>
+  <div class="status" id="status"></div>
+</div>
+
+<div class="card">
+  <div class="controls">
+    <label><span id="x0l">Start x₀</span>: <b id="x0v"></b><input type="range" id="x0" step="0.05"></label>
+    <label id="x2w" style="display:none">Start x₂: <b id="x2v"></b><input type="range" id="x2" step="0.05"></label>
+    <label>Learning rate α: <b id="lrv"></b><input type="range" id="lr" min="0.005" max="1.2" step="0.005"></label>
+    <label>Max iterations: <b id="itv"></b><input type="range" id="it" min="5" max="200" step="1" value="40"></label>
+  </div>
+  <div class="btns">
+    <button class="primary" id="step">Step ▶</button>
+    <button id="run">Run ⏵</button>
+    <button id="finish">Run to end ⏭</button>
+    <button id="reset">Reset ↺</button>
+  </div>
+</div>
+
+<div class="card">
+  <div style="font-weight:600;margin-bottom:8px">Iteration table</div>
+  <div class="tw"><table><thead id="th"></thead><tbody id="tb"></tbody></table></div>
+</div>
+
+<div class="card">
+  <div style="font-weight:600;margin-bottom:6px">Things to try</div>
+  <ul class="note" style="margin:0;padding-left:20px">
+    <li><b>x²</b>: α = 0.1 converges smoothly; α = 0.9 zig-zags; α &gt; 1 diverges.</li>
+    <li><b>Quartic</b>: start at x₀ = 2 and you land in the <i>local</i> minimum; start at x₀ = −2 and you reach the <i>global</i> minimum. Start near the local maximum (x ≈ 0.12) and progress is very slow.</li>
+    <li>Small α is safe but slow; large α is fast until it overshoots.</li>
+    <li><b>Two variables</b>: the contour plot shows f as colour bands (centre = minimum), the white path is the descent, and the yellow dashed segment is the next step −α·∇f. On x₁² + 5x₂², α = 0.18 zig-zags across the valley and α &gt; 0.2 diverges.</li>
+  </ul>
+</div>
+</main>
+
+<script>
+const FUNCS=[
+ {name:'Function 1: one minimum',txt:'f(x) = x²\nf′(x) = 2x',f:x=>x*x,d:x=>2*x,xr:[-4,4],x0:3,lr:0.1},
+ {name:'Function 2: global min, local min, local max',txt:'f(x) = x⁴ − 4x² + x + 1\nf′(x) = 4x³ − 8x + 1\nGlobal min ≈ −1.47, local max ≈ 0.13, local min ≈ 1.35',f:x=>x**4-4*x*x+x+1,d:x=>4*x**3-8*x+1,xr:[-2.6,2.6],x0:2,lr:0.02},
+ {name:'Function 3 (bonus): many local minima',txt:'f(x) = 0.1x² + sin(x)\nf′(x) = 0.2x + cos(x)',f:x=>0.1*x*x+Math.sin(x),d:x=>0.2*x+Math.cos(x),xr:[-8,8],x0:3,lr:0.3},
+ {dim:2,name:'Function 4: two independent variables',txt:'f(x₁, x₂) = x₁² + x₂²\n∇f = (∂f/∂x₁, ∂f/∂x₂) = (2x₁, 2x₂)\nUpdate both: x₁ ← x₁ − α·2x₁, x₂ ← x₂ − α·2x₂',f:(x,y)=>x*x+y*y,d:(x,y)=>2*x,dy:(x,y)=>2*y,xr:[-4,4],x0:3,x20:2.5,lr:0.1},
+ {dim:2,name:'Function 5 (bonus): a stretched valley',txt:'f(x₁, x₂) = x₁² + 5x₂²\n∇f = (2x₁, 10x₂)\nSteep in x₂, shallow in x₁, so descent zig-zags',f:(x,y)=>x*x+5*y*y,d:(x,y)=>2*x,dy:(x,y)=>10*y,xr:[-4,4],x0:3,x20:1.5,lr:0.18}
+];
+const $=id=>document.getElementById(id);
+let cur=0,pts=[],timer=null,stopMsg='';
+const cv=$('cv'),ctx=cv.getContext('2d');
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const fmt=v=>!isFinite(v)?'∞':(Math.abs(v)>=1e6||(v!==0&&Math.abs(v)<1e-4))?v.toExponential(3):v.toFixed(5);
+
+function F(){return FUNCS[cur]}
+function load(i){
+ cur=i;pause();const f=F();
+ document.querySelectorAll('#tabs button').forEach((b,j)=>b.classList.toggle('on',j===i));
+ $('fname').textContent=f.name;$('fdesc').innerHTML=f.txt.replace(/\n/g,'<br>');
+ const x0=$('x0'),x2=$('x2');x0.min=f.xr[0];x0.max=f.xr[1];x0.value=f.x0;
+ x2.min=f.xr[0];x2.max=f.xr[1];x2.value=f.x20||0;$('x2w').style.display=f.dim?'':'none';$('x0l').textContent=f.dim?'Start x₁':'Start x₀';
+ $('lr').value=f.lr;sync();reset();
+}
+function sync(){$('x0v').textContent=(+$('x0').value).toFixed(2);$('x2v').textContent=(+$('x2').value).toFixed(2);$('lrv').textContent=(+$('lr').value).toFixed(3);$('itv').textContent=$('it').value}
+function mk(x,x2){const f=F();return f.dim?{x,x2,y:f.f(x,x2),g:f.d(x,x2),g2:f.dy(x,x2)}:{x,y:f.f(x),g:f.d(x)}}
+function reset(){
+ pause();pts=[mk(+$('x0').value,+$('x2').value)];stopMsg='';render();
+}
+function done(){
+ const p=pts[pts.length-1];
+ if(!isFinite(p.x+(p.x2||0))||Math.abs(p.x)>1e6||Math.abs(p.x2||0)>1e6){stopMsg='Diverged: the learning rate is too large, so each step overshoots further.';return true}
+ if(Math.hypot(p.g,p.g2||0)<1e-5){stopMsg='Converged: the gradient is essentially 0.';return true}
+ if(pts.length-1>=+$('it').value){stopMsg='Reached the maximum number of iterations.';return true}
+ return false;
+}
+function step(){
+ if(done())return false;
+ const lr=+$('lr').value,p=pts[pts.length-1];
+ pts.push(mk(p.x-lr*p.g,p.x2===undefined?undefined:p.x2-lr*p.g2));
+ done();render();return true;
+}
+function pause(){if(timer){clearInterval(timer);timer=null}$('run').textContent='Run ⏵'}
+function run(){
+ if(timer){pause();return}
+ if(done())reset();
+ $('run').textContent='Pause ⏸';
+ timer=setInterval(()=>{if(!step())pause()},350);
+}
+function finish(){pause();let n=0;while(step()&&n++<500);}
+
+function render(){drawPlot();drawTable();
+ const p=pts[pts.length-1],n=pts.length-1;
+ $('status').innerHTML='Iteration <b>'+n+'</b>: '+(F().dim?'(x₁, x₂) = (<b>'+fmt(p.x)+'</b>, <b>'+fmt(p.x2)+'</b>), f = <b>'+fmt(p.y)+'</b>, |∇f| = <b>'+fmt(Math.hypot(p.g,p.g2))+'</b>':'x = <b>'+fmt(p.x)+'</b>, f(x) = <b>'+fmt(p.y)+'</b>, slope = <b>'+fmt(p.g)+'</b>')+(stopMsg?'<br><b style="color:var(--good)">'+stopMsg+'</b>':'');
+}
+function drawTable(){
+ const lr=+$('lr').value,d=F().dim;
+ $('th').innerHTML=d?'<tr><th>Iter</th><th>x₁</th><th>x₂</th><th>f</th><th>∂f/∂x₁</th><th>∂f/∂x₂</th></tr>':'<tr><th>Iter</th><th>x</th><th>f(x)</th><th>f′(x)</th><th>Step = −α·f′(x)</th></tr>';
+ $('tb').innerHTML=pts.map((p,i)=>'<tr'+(i===pts.length-1?' class="last"':'')+'><td>'+i+'</td><td>'+fmt(p.x)+'</td>'+(d?'<td>'+fmt(p.x2)+'</td>':'')+'<td>'+fmt(p.y)+'</td><td>'+fmt(p.g)+'</td>'+(d?'<td>'+fmt(p.g2)+'</td>':'<td>'+fmt(-lr*p.g)+'</td>')+'</tr>').join('');
+ const w=document.querySelector('.tw');w.scrollTop=w.scrollHeight;
+}
+let geo={};
+function contour(W,H){
+ const f=F(),[a,b]=f.xr,R=b-a,s=Math.min(W-50,H-34),ox=40+(W-50-s)/2,oy=8;
+ geo={a,b,ox,oy,s};
+ const dark=css('--card')==='#222427',mx=f.f(b,b),n=Math.ceil(s/4),cs=s/n;
+ for(let i=0;i<n;i++)for(let j=0;j<n;j++){
+  const x=a+(i+.5)/n*R,y=b-(j+.5)/n*R,band=Math.min(9,Math.floor(Math.sqrt(f.f(x,y)/mx)*10));
+  ctx.fillStyle='hsl(212,65%,'+(dark?18+band*4:42+band*5)+'%)';ctx.fillRect(ox+i*cs,oy+j*cs,cs+.5,cs+.5);
+ }
+ const X=x=>ox+(x-a)/R*s,Y=y=>oy+(b-y)/R*s;
+ ctx.strokeStyle=css('--line');ctx.lineWidth=1;ctx.strokeRect(ox,oy,s,s);
+ ctx.fillStyle=css('--muted');ctx.font='11px system-ui';ctx.textAlign='center';
+ for(let k=0;k<=4;k++){const v=a+R*k/4;ctx.fillText(v.toFixed(0),X(v),oy+s+13);ctx.textAlign='right';ctx.fillText(v.toFixed(0),ox-4,Y(v)+4);ctx.textAlign='center'}
+ ctx.fillText('x₁',ox+s/2,oy+s+27);ctx.fillText('x₂ (vertical)',ox-2+s/2+90,oy+s+27);
+ const pc=css('--path'),lr=+$('lr').value;
+ const vis=pts.filter(p=>isFinite(p.x+p.x2)&&Math.abs(p.x)<=b*3&&Math.abs(p.x2)<=b*3);
+ ctx.save();ctx.beginPath();ctx.rect(ox,oy,s,s);ctx.clip();
+ ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.beginPath();vis.forEach((p,i)=>i?ctx.lineTo(X(p.x),Y(p.x2)):ctx.moveTo(X(p.x),Y(p.x2)));ctx.stroke();
+ vis.forEach(p=>{const last=p===pts[pts.length-1];ctx.fillStyle=last?pc:'#fff';ctx.strokeStyle=pc;ctx.beginPath();ctx.arc(X(p.x),Y(p.x2),last?6:3.5,0,7);ctx.fill();if(!last)ctx.stroke()});
+ const p=pts[pts.length-1];
+ if(isFinite(p.g+p.g2)){ctx.strokeStyle='#ffd43b';ctx.setLineDash([5,4]);ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(X(p.x),Y(p.x2));ctx.lineTo(X(p.x-lr*p.g),Y(p.x2-lr*p.g2));ctx.stroke();ctx.setLineDash([])}
+ ctx.restore();
+}
+function drawPlot(){
+ const dpr=window.devicePixelRatio||1,W=cv.clientWidth,H=cv.clientHeight;
+ cv.width=W*dpr;cv.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);
+ if(F().dim)return contour(W,H);
+ const f=F(),[a,b]=f.xr;let lo=Infinity,hi=-Infinity;
+ for(let i=0;i<=200;i++){const y=f.f(a+(b-a)*i/200);lo=Math.min(lo,y);hi=Math.max(hi,y)}
+ const pad=(hi-lo)*0.08;lo-=pad;hi+=pad;
+ const m={l:40,r:12,t:10,b:26};
+ const X=x=>m.l+(x-a)/(b-a)*(W-m.l-m.r),Y=y=>H-m.b-(y-lo)/(hi-lo)*(H-m.t-m.b);
+ geo={a,b,m,W};
+ ctx.strokeStyle=css('--line');ctx.fillStyle=css('--muted');ctx.lineWidth=1;ctx.font='11px system-ui';
+ ctx.beginPath();
+ for(let i=0;i<=8;i++){const x=a+(b-a)*i/8;ctx.moveTo(X(x),m.t);ctx.lineTo(X(x),H-m.b);ctx.textAlign='center';ctx.fillText(x.toFixed(1),X(x),H-8)}
+ for(let i=0;i<=4;i++){const y=lo+(hi-lo)*i/4;ctx.moveTo(m.l,Y(y));ctx.lineTo(W-m.r,Y(y));ctx.textAlign='right';ctx.fillText(y.toFixed(1),m.l-4,Y(y)+4)}
+ ctx.stroke();
+ ctx.strokeStyle=css('--curve');ctx.lineWidth=2.2;ctx.beginPath();
+ for(let i=0;i<=400;i++){const x=a+(b-a)*i/400,y=f.f(x);i?ctx.lineTo(X(x),Y(y)):ctx.moveTo(X(x),Y(y))}
+ ctx.stroke();
+ const vis=pts.filter(p=>isFinite(p.x)&&p.x>=a&&p.x<=b);
+ const pc=css('--path');ctx.strokeStyle=pc;ctx.lineWidth=1.2;ctx.beginPath();
+ vis.forEach((p,i)=>i?ctx.lineTo(X(p.x),Y(p.y)):ctx.moveTo(X(p.x),Y(p.y)));ctx.stroke();
+ vis.forEach((p,i)=>{const last=p===pts[pts.length-1];ctx.fillStyle=pc;ctx.globalAlpha=last?1:0.55;ctx.beginPath();ctx.arc(X(p.x),Y(p.y),last?6:3.5,0,7);ctx.fill();ctx.globalAlpha=1;
+  if(vis.length<=12){ctx.fillStyle=css('--muted');ctx.textAlign='center';ctx.fillText(pts.indexOf(p),X(p.x),Y(p.y)-10)}});
+ const p=pts[pts.length-1];
+ if(p&&isFinite(p.x)&&p.x>=a&&p.x<=b&&isFinite(p.g)){
+  const dx=(b-a)*0.12;ctx.strokeStyle=css('--accent');ctx.setLineDash([5,4]);ctx.lineWidth=1.5;ctx.beginPath();
+  ctx.moveTo(X(p.x-dx),Y(p.y-p.g*dx));ctx.lineTo(X(p.x+dx),Y(p.y+p.g*dx));ctx.stroke();ctx.setLineDash([]);
+ }
+}
+cv.addEventListener('click',e=>{
+ const r=cv.getBoundingClientRect(),{a,b,m,W}=geo;
+ if(F().dim){const g=geo,c=v=>Math.max(a,Math.min(b,v));$('x0').value=c(a+((e.clientX-r.left)-g.ox)/g.s*(b-a));$('x2').value=c(b-((e.clientY-r.top)-g.oy)/g.s*(b-a));sync();reset();return}
+ let x=a+((e.clientX-r.left)-m.l)/(W-m.l-m.r)*(b-a);x=Math.max(a,Math.min(b,x));
+ $('x0').value=x;sync();reset();
+});
+['x0','x2','lr','it'].forEach(id=>$(id).addEventListener('input',()=>{sync();if(id==='it'){if(!stopMsg||pts.length-1<+$('it').value){stopMsg='';done();}render()}else if(id==='x0'||id==='x2')reset();else render()}));
+$('step').onclick=()=>{pause();step()};$('run').onclick=run;$('finish').onclick=finish;$('reset').onclick=reset;
+FUNCS.forEach((f,i)=>{const b=document.createElement('button');b.textContent=['x²','x⁴ − 4x² + x + 1','0.1x² + sin(x)','x₁² + x₂²','x₁² + 5x₂²'][i];b.onclick=()=>load(i);$('tabs').appendChild(b)});
+addEventListener('resize',drawPlot);
+matchMedia('(prefers-color-scheme:dark)').addEventListener('change',drawPlot);
+load(0);
+</script>
+</body>
+</html>
